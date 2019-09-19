@@ -10,15 +10,15 @@
 # Summary: Virtual network and virtual block device hotplugging
 # Maintainer: Jan Baier <jbaier@suse.cz>
 
-use base "consoletest";
+use base "virsh_autotest_base";
 use xen;
 use strict;
 use warnings;
 use testapi;
 use utils;
-use version_utils 'is_sle';
+use virt_utils;
 
-sub run {
+sub run_test {
     my ($self) = @_;
     my $hypervisor = get_var('HYPERVISOR') // '127.0.0.1';
 
@@ -85,21 +85,17 @@ sub run {
     }
 
     my %mac = ();
-    record_info "Virtual network", "Adding virtual network interface";
     foreach my $guest (keys %xen::guests) {
         $mac{$guest} = '00:16:3f:32:' . (int(rand(89)) + 10) . ':' . (int(rand(89)) + 10);
-        unless ($guest =~ m/hvm/i && is_sle('<=12-SP2') && check_var("XEN", "1")) {
-            script_retry "ssh root\@$guest ip l | grep " . $xen::guests{$guest}->{macaddress}, delay => 60, retry => 3, timeout => 60;
-            assert_script_run "virsh attach-interface --domain $guest --type bridge --source br0 --mac " . $mac{$guest} . " --live";
-            assert_script_run "virsh domiflist $guest | grep br0";
-            assert_script_run "ssh root\@$guest cat /proc/uptime | cut -d. -f1", 60;
-            script_retry "ssh root\@$guest ip l | grep " . $mac{$guest}, delay => 60, retry => 3, timeout => 60;
-            assert_script_run "virsh detach-interface $guest bridge --mac " . $mac{$guest};
-        } else {
-            record_soft_failure 'bsc#959325 - Live NIC attachment on <=12-SP2 Xen hypervisor with HVM guests does not work correctly.';
-        }
     }
+
+    record_info "Virtual network", "Adding virtual network interface";
+    script_retry "ssh root\@$_ ip l | grep " . $xen::guests{$_}->{macaddress}, delay => 60, retry => 3, timeout => 60 foreach (keys %xen::guests);
+    assert_script_run "virsh attach-interface --domain $_ --type bridge --source br0 --mac " . $mac{$_} . " --live" foreach (keys %xen::guests);
+    assert_script_run "virsh domiflist $_ | grep br0" foreach (keys %xen::guests);
+    assert_script_run "ssh root\@$_ cat /proc/uptime | cut -d. -f1", 60 foreach (keys %xen::guests);
+    script_retry "ssh root\@$_ ip l | grep " . $mac{$_}, delay => 60, retry => 3, timeout => 60 foreach (keys %xen::guests);
+    assert_script_run "virsh detach-interface $_ bridge --mac " . $mac{$_} foreach (keys %xen::guests);
 }
 
 1;
-

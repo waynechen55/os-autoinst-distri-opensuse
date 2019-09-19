@@ -20,6 +20,7 @@ use Data::Dumper;
 use XML::Writer;
 use IO::File;
 use virt_utils;
+use xen;
 
 sub analyzeResult {
     die "You need to overload analyzeResult in your class";
@@ -31,17 +32,12 @@ sub get_script_run {
 
 sub generateXML {
     my ($self, $data) = @_;
-
     print Dumper($data);
     my %my_hash = %$data;
-
-    my $case_num = scalar(keys %my_hash);
-    my $case_status;
-    my $xml_result;
+    my %xml_data;
     my $pass_nums = 0;
     my $fail_nums = 0;
     my $skip_nums = 0;
-    my $writer    = XML::Writer->new(DATA_MODE => 'true', DATA_INDENT => 2, OUTPUT => 'self');
 
     foreach my $item (keys(%my_hash)) {
         if ($my_hash{$item}->{status} =~ m/PASSED/) {
@@ -55,67 +51,18 @@ sub generateXML {
             $fail_nums += 1;
         }
     }
+    $xml_data{"pass_nums"}             = $pass_nums;
+    $xml_data{"fail_nums"}             = $fail_nums;
+    $xml_data{"skip_nums"}             = $skip_nums;
+    @{$xml_data{"success_guest_list"}} = @{$self->{success_guest_list}};
+    $xml_data{"product_name"}          = $self->{product_name};
+    $xml_data{"product_tested_on"}     = $self->{product_tested_on};
+    $xml_data{"package_name"}          = $self->{package_name};
+    print Dumper(\%xml_data);
+    diag "GENERATE FROM DATA:", Dumper(\%xml_data);
 
     diag '@{$self->{success_guest_list}} content is: ' . Dumper(@{$self->{success_guest_list}});
-
-    my $count = $pass_nums + $fail_nums + $skip_nums;
-    $writer->startTag(
-        'testsuites',
-        error    => "0",
-        failures => "$fail_nums",
-        name     => $self->{product_name},
-        skipped  => "0",
-        tests    => "$count",
-        time     => ""
-    );
-    $writer->startTag(
-        'testsuite',
-        error     => "0",
-        failures  => "$fail_nums",
-        hostname  => "`hostname`",
-        id        => "0",
-        name      => $self->{product_tested_on},
-        package   => $self->{package_name},
-        skipped   => "0",
-        tests     => $case_num,
-        time      => "",
-        timestamp => "2016-02-16T02:50:00"
-    );
-
-    foreach my $item (keys(%my_hash)) {
-        if ($my_hash{$item}->{status} =~ m/PASSED/) {
-            $case_status = "success";
-        }
-        elsif ($my_hash{$item}->{status} =~ m/SKIPPED/ && $item =~ m/iso/) {
-            $case_status = "skipped";
-        }
-        else {
-            $case_status = "failure";
-        }
-
-        $writer->startTag(
-            'testcase',
-            classname => $item,
-            name      => $item,
-            status    => $case_status,
-            time      => $my_hash{$item}->{time});
-        $writer->startTag('system-err');
-        my $system_err = ($my_hash{$item}->{error} ? $my_hash{$item}->{error} : 'None');
-        $writer->characters("$system_err");
-        $writer->endTag('system-err');
-
-        $writer->startTag('system-out');
-        $writer->characters($my_hash{$item}->{time});
-        $writer->endTag('system-out');
-
-        $writer->endTag('testcase');
-    }
-
-    $writer->endTag('testsuite');
-    $writer->endTag('testsuites');
-
-    $writer->end();
-    $writer->to_string();
+    generateXML_from_data($data, \%xml_data);
 }
 
 sub execute_script_run {

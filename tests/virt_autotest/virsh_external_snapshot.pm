@@ -24,13 +24,12 @@ use strict;
 use warnings;
 use testapi;
 use set_config_as_glue;
+use virt_utils;
 
-sub run {
-    #Snapshots are supported on KVM VM Host Servers only
-    return unless check_var("REGRESSION", "qemu-hypervisor") || check_var("SYSTEM_ROLE", "kvm");
-
-    my $wait_script                 = "30";
-    my $get_vm_hostnames_inactive   = "virsh list --inactive | grep sles | awk \'{print \$2}\'";
+sub run_test {
+    my ($self)                    = @_;
+    my $wait_script               = "30";
+    my $get_vm_hostnames_inactive = "virsh list --inactive | grep sles | awk \'{print \$2}\'";
     my $vm_hostnames_inactive       = script_output($get_vm_hostnames_inactive, $wait_script, type_command => 0, proceed_on_failure => 0);
     my @vm_hostnames_inactive_array = split(/\n+/, $vm_hostnames_inactive);
 

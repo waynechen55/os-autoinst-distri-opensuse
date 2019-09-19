@@ -23,10 +23,10 @@ use strict;
 use warnings;
 use testapi;
 use set_config_as_glue;
+use virt_utils;
 
-sub run {
-    #Snapshots are supported on KVM VM Host Servers only
-    return unless check_var("REGRESSION", "qemu-hypervisor") || check_var("SYSTEM_ROLE", "kvm");
+sub run_test {
+    my ($self) = @_;
 
     foreach my $guest (keys %xen::guests) {
         record_info "virsh-snapshot", "Creating Internal Snapshot";
@@ -52,7 +52,6 @@ sub run {
         assert_script_run "virsh snapshot-delete $guest --snapshotname internal-snapshot-$guest-02";
         assert_script_run("! virsh snapshot-list $guest | grep internal-snapshot-$guest-02");
     }
-
 }
 
 1;
