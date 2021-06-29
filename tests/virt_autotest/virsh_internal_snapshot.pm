@@ -68,4 +68,9 @@ sub run_test {
     }
 }
 
+sub test_flags {
+    #continue subsequent test in the case test restored
+    return {fatal => 0};
+}
+
 1;

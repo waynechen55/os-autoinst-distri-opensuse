@@ -86,4 +86,9 @@ sub run_test {
     assert_script_run "virsh pool-undefine testing";
 }
 
+sub test_flags {
+    #continue subsequent test in the case test restored
+    return {fatal => 0};
+}
+
 1;

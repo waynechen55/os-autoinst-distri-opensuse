@@ -600,10 +600,10 @@ sub load_yast2_registration_tests {
 }
 
 sub load_virt_guest_install_tests {
-    if (get_var("VIRT_UEFI_GUEST_INSTALL")) {
-        loadtest "virt_autotest/uefi_guest_installation";
+    if (get_var("VIRT_UNIFIED_GUEST_INSTALL")) {
+        loadtest "virt_autotest/unified_guest_installation";
         loadtest "virt_autotest/set_config_as_glue";
-        loadtest "virt_autotest/uefi_guest_verification";
+	loadtest "virt_autotest/uefi_guest_verification" if get_var("VIRT_UEFI_GUEST_INSTALL");
     }
     else {
         loadtest "virt_autotest/guest_installation_run";
@@ -625,8 +625,8 @@ sub load_virt_feature_tests {
     loadtest "virt_autotest/sriov_network_card_pci_passthrough" if get_var("ENABLE_SRIOV_NETWORK_CARD_PCI_PASSSHTROUGH");
     loadtest "virtualization/universal/hotplugging"             if get_var("ENABLE_HOTPLUGGING");
     loadtest "virtualization/universal/storage"                 if get_var("ENABLE_STORAGE");
-    loadtest "virt_autotest/virsh_internal_snapshot";
-    loadtest "virt_autotest/virsh_external_snapshot";
+    #loadtest "virt_autotest/virsh_internal_snapshot";
+    #loadtest "virt_autotest/virsh_external_snapshot";
 }
 
 testapi::set_distribution(DistributionProvider->provide());
@@ -818,28 +818,28 @@ elsif (get_var("VIRT_AUTOTEST")) {
     }
     else {
         if (!is_s390x) {
-            load_boot_tests();
+            #load_boot_tests();
             if (get_var("AUTOYAST")) {
                 loadtest "autoyast/installation";
                 loadtest "virt_autotest/reboot_and_wait_up_normal";
             }
             else {
-                load_inst_tests();
+		#load_inst_tests();
                 loadtest "virt_autotest/login_console";
             }
         }
         else {
             loadtest "virt_autotest/login_console";
         }
-        loadtest "virt_autotest/install_package";
-        loadtest "virt_autotest/update_package";
-        loadtest "virt_autotest/reset_partition";
-        loadtest "virt_autotest/reboot_and_wait_up_normal" if get_var('REPO_0_TO_INSTALL');
-        loadtest "virt_autotest/download_guest_assets"     if get_var("SKIP_GUEST_INSTALL") && is_x86_64;
+	#loadtest "virt_autotest/install_package";
+	#loadtest "virt_autotest/update_package";
+	#loadtest "virt_autotest/reset_partition";
+	#loadtest "virt_autotest/reboot_and_wait_up_normal" if get_var('REPO_0_TO_INSTALL');
+	#loadtest "virt_autotest/download_guest_assets"     if get_var("SKIP_GUEST_INSTALL") && is_x86_64;
     }
     if (get_var("VIRT_PRJ1_GUEST_INSTALL")) {
         load_virt_guest_install_tests;
-        load_virt_feature_tests if (!(get_var("GUEST_PATTERN") =~ /win/img) && is_x86_64 && !get_var("LTSS"));
+	load_virt_feature_tests if (!(get_var("GUEST_PATTERN") =~ /win/img) && is_x86_64 && !get_var("LTSS"));
     }
     #those tests which test extended features, such as hotpluggin, virtual network and SRIOV passhthrough etc.
     #they can be seperated from prj1 if needed
