@@ -48,7 +48,7 @@ function fetch_logs_from_guest_via_ssh() {
         local guest_ipaddr=$2
         local logs_folder=$3
         local guest_user="root"
-        local guest_pass="novell"
+        local guest_pass="novell1"
         local sshpass_scp_cmd="sshpass -p ${guest_pass} scp -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -r ${guest_user}@${guest_ipaddr}"
         local sshpass_ssh_cmd="sshpass -p ${guest_pass} ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no ${guest_user}@${guest_ipaddr}"
         local guest_transformed=${guest_domain//./_}

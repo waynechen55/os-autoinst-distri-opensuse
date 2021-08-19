@@ -7,6 +7,8 @@ firewall --disabled --ssh --service=ssh
 #Use CDROM installation media
 cdrom
 
+test-command xxxxxxx
+
 ##Configures additional yum repositories that may be used as sources for package installation
 repo --name="AppStream" --baseurl=file:///run/install/sources/mount-0000-cdrom/AppStream
 
@@ -56,7 +58,7 @@ bootloader --timeout 8
 services --enabled sshd
 
 #This installs a ssh key to the authorized_keys file of the specified user on the installed system
-sshkey "##Authorized-Keys##" --username root
+sshkey "Authorized-Keys" --username root
 
 #The installer can start up ssh to provide for interactivity and inspection, just like it can with telnet
 sshpw $6$/2CjdguO.C2pZTYv$lk1WGy9n5Dcv.CqfxUDujzsfTgGsxgW.WerJqUzF31osEWMuiUnDvXwLnZH8cZ/SB6L/a.0AH2En/aWUZDoFv/ --username root --iscrypted

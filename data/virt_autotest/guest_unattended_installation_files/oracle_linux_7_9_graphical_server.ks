@@ -7,6 +7,8 @@ install
 # Use CDROM installation media
 cdrom
 
+test-command xxxxxxx
+
 ##Configures additional yum repositories that may be used as sources for package installation
 repo --name="Server-HighAvailability" --baseurl=file:///run/install/repo/addons/HighAvailability
 repo --name="Server-ResilientStorage" --baseurl=file:///run/install/repo/addons/ResilientStorage
@@ -45,7 +47,7 @@ services --disabled="chronyd" --enabled="sshd"
 sshpw $6$zvl3sD3rWFqvfCba$HqhHw.yA8XUcbgWzNjTzF/4GNDwlOG4hD6wTcDepjM9Fo0rdE.orxepVc8k4at9X.IIlDc6sHQkxqbSQHEmS41 --username root --iscrypted
 
 #This installs a ssh key to the authorized_keys file of the specified user on the installed system
-sshkey "##Authorized-Keys##" --username root
+sshkey "Authorized-Keys" --username root
 
 #Removes partitions from the system, prior to creation of new partitions
 clearpart --all --initlabel --disklabel ##Disk-Label##

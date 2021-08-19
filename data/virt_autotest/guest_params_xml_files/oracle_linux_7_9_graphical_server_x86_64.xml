@@ -26,7 +26,7 @@
     <guest_installation_method_others></guest_installation_method_others>
     <guest_installation_media>OracleLinux-R7-U9-Server-x86_64-dvd.iso</guest_installation_media>
     <guest_installation_fine_grained></guest_installation_fine_grained>
-    <guest_boot_settings></guest_boot_settings>
+    <guest_boot_settings>loader=/usr/share/qemu/ovmf-x86_64-ms-code.bin</guest_boot_settings>
     <guest_secure_boot></guest_secure_boot>
     <guest_os_variant>ol7.8</guest_os_variant>
     <guest_storage_path></guest_storage_path>

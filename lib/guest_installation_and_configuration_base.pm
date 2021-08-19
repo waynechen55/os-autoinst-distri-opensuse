@@ -139,7 +139,8 @@ our %guest_params = (
     'guest_autostart'        => '',    #TODO            #virt-install --[guest_autostart(autostart or empty)]
     'guest_transient'        => '',    #TODO            #virt-install --[guest_transient(transient or empty)]
     'guest_destroy_on_exit'  => '',    #TODO            #virt-install --[guest_destroy_on_exit(true or false)]
-    'guest_autoconsole'      => '',    #virt-install --autoconsole [guest_autoconsole(text or graphical)] or virt-install --noautoconsole if empty
+    'guest_autoconsole'      => '',    #virt-install --autoconsole [guest_autoconsole(text or graphical or none)].For virt-manager earlier than 3.0.0, this option does not exist and should be left empty.
+    'guest_noautoconsole'    => '',    #virt-install --noautoconsole if true.This option should only be given 'true', 'false' or empty.
     'guest_noreboot'         => '',    #TODO            #virt-install --[guest_noreboot(true or false)]
     'guest_default_target'   => '',    #This indicates whether guest os default target(multi-user, graphical or others), not virt-install argument
         #The following parameters end with 'options' are derived from above parameters. They contains options and corresponding values
@@ -178,6 +179,7 @@ our %guest_params = (
                                                    #The following five parameters are detailed guest os information,not virt-install arguments
     'guest_log_folder'                 => '',      #Log folder for individual guest [common_log_folder]/[guest_name]
     'guest_installation_result'        => '',      #PASSED,FAILED,TIMEOUT,UNKNOWN or others
+    'guest_installation_session_config' => '',     #The absolute path of screen command config file which will be used in screen -c [guest_installation_session_config]
     'guest_installation_session' => '', #Guest installation process started by "screen -t [guest_name] [virt_install_command_line]. It is in the form of 3401.pts-1.vh017
     'guest_installation_session_command' => '', #If there is no [guest_installation_session] or [guest_installation_session] is terminated, start or re-connect to
         #guest installation screen using [guest_installation_session_command] = screen -t [guest_name] virsh console --force [guest_name]
@@ -383,7 +385,7 @@ sub prepare_guest_environment {
     $self->{guest_log_folder} = $common_log_folder . '/' . $self->{guest_name};
     script_run("rm -f -r $self->{guest_log_folder}");
     assert_script_run("mkdir -p $self->{guest_log_folder}");
-    script_run("sed -i -r '/^.*$self->{guest_name}.*\$/d' /etc/hosts");
+    script_run("sed -i -r \'/^.*$self->{guest_name}.*\$/d\' /etc/hosts");
     return $self;
 }
 
@@ -834,7 +836,7 @@ sub config_guest_network_bridge_services {
     my $_detect_signature = script_output("cat /etc/sysconfig/network/config | grep \"#Modified by guest_installation_and_configuration_base module\"", proceed_on_failure => 1);
     if (!($_detect_signature =~ /#Modified by guest_installation_and_configuration_base module/im)) {
         assert_script_run("cp /etc/sysconfig/network/config /etc/sysconfig/network/config_backup");
-        assert_script_run("sed -ri 's/^NETCONFIG_DNS_POLICY.*\$/NETCONFIG_DNS_POLICY=\"\"/g' /etc/sysconfig/network/config");
+        assert_script_run("sed -ri \'s/^NETCONFIG_DNS_POLICY.*\$/NETCONFIG_DNS_POLICY=\"\"/g\' /etc/sysconfig/network/config");
         assert_script_run("echo \'#Modified by guest_installation_and_configuration_base module\' >> /etc/sysconfig/network/config");
     }
     record_info("Content of /etc/sysconfig/network/config", script_output("cat /etc/sysconfig/network/config", proceed_on_failure => 1));
@@ -855,14 +857,16 @@ sub config_guest_network_bridge_services {
     my $_dnsmasq_log = "$common_log_folder/dnsmasq_listen_address_$_guest_network_ipaddr_gw_transformed" . '_log';
     my $_dnsmasq_command = "/usr/sbin/dnsmasq --bind-dynamic --listen-address=$_guest_network_ipaddr_gw --bogus-priv --domain-needed --expand-hosts --dhcp-range=$_guest_network_ipaddr_start,$_guest_network_ipaddr_end,$_guest_network_mask,8h --interface=$_guest_network_device --dhcp-authoritative --no-negcache --dhcp-option=option:router,$_guest_network_ipaddr_gw --log-queries --local=/$self->{guest_domain_name}/ --domain=$self->{guest_domain_name} --log-dhcp --dhcp-fqdn --dhcp-sequential-ip --dhcp-client-update --dns-loop-detect --no-daemon --server=/$self->{guest_domain_name}/$_guest_network_ipaddr_gw --server=/$_guest_network_ipaddr_rev/$_guest_network_ipaddr_gw";
     my $_retry_counter = 5;
-    while (($_retry_counter gt 0) and (script_output("pgrep -i -f \"$_dnsmasq_command\"", proceed_on_failure => 1) eq '')) {
+    #Use grep instead of pgrep to avoid that the latter's case-insensitive search option might not be supported by some obsolete operating systems.
+    while (($_retry_counter gt 0) and (script_output("ps ax | grep -i \"$_dnsmasq_command\" | grep -v grep | awk \'{print \$1}\'", proceed_on_failure => 1) eq '')) {
         script_run("((nohup $_dnsmasq_command  &>$_dnsmasq_log) &)");
         save_screenshot;
         send_key('ret');
         save_screenshot;
         $_retry_counter--;
     }
-    if (script_output("pgrep -i -f \"$_dnsmasq_command\"", proceed_on_failure => 1) eq '') {
+    #Use grep instead of pgrep to avoid that the latter's case-insensitive search option might not be supported by some obsolete operating systems.
+    if (script_output("ps ax | grep -i \"$_dnsmasq_command\" | grep -v grep | awk \'{print \$1}\'", proceed_on_failure => 1) eq '') {
         record_info("DHCP and DNS services can not start.Mark guest $self->{guest_name} installation as FAILED", "The command used is ((nohup $_dnsmasq_command  &>$_dnsmasq_log) &)");
         $self->record_guest_installation_result('FAILED');
     }
@@ -900,6 +904,8 @@ LANG=POSIX
 SHELL=/bin/bash
 PWD=/root
 iptables-save > $self->{guest_log_folder}/iptables_before_modification_by_$self->{guest_name}
+systemctl stop SuSEFirewall2
+systemctl disable SuSEFirewall2
 systemctl stop firewalld
 systemctl disable firewalld
 systemctl stop apparmor
@@ -948,7 +954,8 @@ sub config_guest_installation_method {
     }
     $self->{guest_installation_method_options} = $self->{guest_installation_method_options} . ($self->{guest_installation_method_others} ne '' ? ",$self->{guest_installation_method_others}" : '') if ($self->{guest_installation_method_others} ne '');
     $self->{guest_installation_method_options} = $self->{guest_installation_method_options} . ($self->{guest_installation_fine_grained} ne '' ? " --install $self->{guest_installation_fine_grained}" : '') if ($self->{guest_installation_fine_grained} ne '');
-    $self->{guest_installation_method_options} = $self->{guest_installation_method_options} . ($self->{guest_autoconsole} ne '' ? " --autoconsole $self->{guest_autoconsole}" : ' --noautoconsole');
+    $self->{guest_installation_method_options} = $self->{guest_installation_method_options} . " --autoconsole $self->{guest_autoconsole}" if ($self->{guest_autoconsole} ne '');
+    $self->{guest_installation_method_options} = $self->{guest_installation_method_options} . " --noautoconsole" if ($self->{guest_noautoconsole} eq 'true');
     return $self;
 }
 
@@ -1068,7 +1075,7 @@ sub config_guest_installation_automation {
             $_guest_installation_media_extension_url =~ s/\//PLACEHOLDER/img;
             assert_script_run("sed -ri \'s/##$_##/$_guest_installation_media_extension_url/g;\' $self->{guest_installation_automation_file}");
         }
-        assert_script_run("sed -ri 's/PLACEHOLDER/\\\//g;' $self->{guest_installation_automation_file}");
+        assert_script_run("sed -ri \'s/PLACEHOLDER/\\\//g;\' $self->{guest_installation_automation_file}");
     }
 
     if (!((script_run("[[ -f /root/.ssh/id_rsa.pub ]] && [[ -f /root/.ssh/id_rsa.pub.bak ]]") eq 0) and (script_run("cmp /root/.ssh/id_rsa.pub /root/.ssh/id_rsa.pub.bak") eq 0))) {
@@ -1099,14 +1106,16 @@ sub config_guest_installation_automation {
 
     my $_http_server_command = "python3 -m http.server 8666 --bind $self->{host_ipaddr}";
     my $_retry_counter       = 5;
-    while (($_retry_counter gt 0) and (script_output("pgrep -i -f \"$_http_server_command\"", proceed_on_failure => 1) eq '')) {
+    #Use grep instead of pgrep to avoid that the latter's case-insensitive search option might not be supported by some obsolete operating systems.
+    while (($_retry_counter gt 0) and (script_output("ps ax | grep -i \"$_http_server_command\" | grep -v grep | awk \'{print \$1}\'", proceed_on_failure => 1) eq '')) {
         script_run("cd $common_log_folder && ((nohup $_http_server_command &>$common_log_folder/http_server_log) &) && cd ~");
         save_screenshot;
         send_key("ret");
         save_screenshot;
         $_retry_counter--;
     }
-    if (script_output("pgrep -i -f \"$_http_server_command\"", proceed_on_failure => 1) eq '') {
+    #Use grep instead of pgrep to avoid that the latter's case-insensitive search option might not be supported by some obsolete operating systems.
+    if (script_output("ps ax | grep -i \"$_http_server_command\" | grep -v grep | awk \'{print \$1}\'", proceed_on_failure => 1) eq '') {
         record_info("HTTP server can not start and serve unattended installation file.Mark guest $self->{guest_name} installation as FAILED", "The command used is ((nohup $_http_server_command &>$common_log_folder/http_server_log) &)");
         $self->record_guest_installation_result('FAILED');
         return $self;
@@ -1219,7 +1228,13 @@ sub start_guest_installation {
     script_run("set +o pipefail");
     save_screenshot;
     record_info("Guest $self->{guest_name} installation dry run succeeded", "Going to install by using $self->{virt_install_command_line}");
-    type_string("screen -t $self->{guest_name} -L -Logfile $_guest_installation_log $self->{virt_install_command_line}\n", timeout => 600 / get_var('TIMEOUT_SCALE', 1));
+    #Use "screen" in the most compatible way, screen -t "title" -L -c "configuration file" "turn on output logging" "command to run".
+    #The -Logfile option is only supported by more recent operating systems.
+    $self->{guest_installation_session_config} = script_output("cd ~;pwd") . '/' . $self->{guest_name} . '_installation_screen_config';
+    script_run("rm -f -r $self->{guest_installation_session_config};touch $self->{guest_installation_session_config};chmod 777 $self->{guest_installation_session_config}");
+    script_run("cat /etc/screenrc > $self->{guest_installation_session_config};sed -in \'/^logfile .*\$/d\' $self->{guest_installation_session_config}");
+    script_run("echo \"logfile $_guest_installation_log\" >> $self->{guest_installation_session_config}");
+    type_string("screen -t $self->{guest_name} -L -c $self->{guest_installation_session_config} $self->{virt_install_command_line}\n", timeout => 600 / get_var('TIMEOUT_SCALE', 1));
     record_info("Guest $self->{guest_name} installation started", "The virt-install command line is $self->{virt_install_command_line}");
     return $self;
 }
@@ -1234,7 +1249,8 @@ sub get_guest_installation_session {
         return $self;
     }
     my $installation_tty = script_output("tty | awk -F\"/\" 'BEGIN { OFS=\"-\" } {print \$3,\$4}\'", proceed_on_failure => 1);
-    my $installation_pid = script_output("pgrep -i -f \"SCREEN -t $self->{guest_name}\"",            proceed_on_failure => 1);
+    #Use grep instead of pgrep to avoid that the latter's case-insensitive search option might not be supported by some obsolete operating systems.
+    my $installation_pid = script_output("ps ax | grep -i \"SCREEN -t $self->{guest_name}\" | grep -v grep | awk \'{print \$1}\'", proceed_on_failure => 1);
     $self->{guest_installation_session} = ($installation_pid eq '' ? '' : $installation_pid . ".$installation_tty." . $self->{host_name});
     record_info("Guest $self->{guest_name} installation screen process info", "$self->{guest_name} $self->{guest_installation_session}");
     return $self;
@@ -1262,6 +1278,7 @@ sub get_guest_ipaddr {
 
     $self->reveal_myself;
     return $self if ((($self->{guest_ipaddr} ne '') and ($self->{guest_ipaddr} ne 'NO_IP_ADDRESS_FOUND_AT_THE_MOMENT')) or ($self->{guest_ipaddr_static} eq 'true'));
+    $self->power_cycle_guest('poweron');
     @subnets_in_route = split(/\n+/, script_output("ip route show all | awk \'{print \$1}\' | grep -v default")) if (scalar(@subnets_in_route) eq 0);
     foreach (@subnets_in_route) {
         my $single_subnet = $_;
@@ -1296,7 +1313,7 @@ sub monitor_guest_installation {
 
     $self->reveal_myself;
     save_screenshot;
-    if (!(check_screen([qw(text-logged-in-root guest-installation-in-progress guest-installation-failures grub2 text-login guest-console-text-login)], 180 / get_var('TIMEOUT_SCALE', 1)))) {
+    if (!(check_screen([qw(text-logged-in-root guest-installation-in-progress guest-installation-failures grub2 linux-login text-login guest-console-text-login)], 180 / get_var('TIMEOUT_SCALE', 1)))) {
         save_screenshot;
         record_info("Can not detect any interested screens on guest $self->{guest_name} installation process", "Going to detach current screen anyway");
         $self->detach_guest_installation_screen;
@@ -1310,10 +1327,23 @@ sub monitor_guest_installation {
         record_info("Installation failed due to errors for guest $self->{guest_name}", "Bad luck ! Mark it as FAILED");
         $self->get_guest_ipaddr if ($self->{guest_ipaddr_static} ne 'true');
     }
-    elsif (match_has_tag('text-login') or match_has_tag('guest-console-text-login')) {
+    elsif (match_has_tag('linux-login') or match_has_tag('text-login') or match_has_tag('guest-console-text-login')) {
         save_screenshot;
+	#if (match_has_tag('text-login')) {
+	#    wait_still_screen(stilltime => 15, timeout => 120 / get_var('TIMEOUT_SCALE', 1));
+	#    save_screenshot;
+	#    check_screen([qw(text-login guest-console-text-login)], timeout => 180 / get_var('TIMEOUT_SCALE', 1));
+	#    save_screenshot;
+	#}
         $self->detach_guest_installation_screen;
-        my $_detect_installation_result = $self->check_guest_installation_result_via_ssh;
+	#my $_retry_counter = 3;
+	my $_detect_installation_result = $self->check_guest_installation_result_via_ssh;
+	#save_screenshot;
+	#while (($_retry_counter gt 0) and ($_detect_installation_result eq '')) {
+	#    $_detect_installation_result = $self->check_guest_installation_result_via_ssh;
+	#    $_retry_counter--;
+	#    save_screenshot;
+	#}
         if ($_detect_installation_result eq '') {
             record_info("Installation finished with bad ssh connection for guest $self->{guest_name}", "Almost there ! Mark it as FAILED");
             $self->record_guest_installation_result('FAILED');
@@ -1325,8 +1355,8 @@ sub monitor_guest_installation {
     }
     elsif (match_has_tag('text-logged-in-root')) {
         save_screenshot;
-        if ($self->{guest_autoconsole} eq '') {
-            record_info("Can not monitor and obtain guest $self->{guest_name} installation progress", "Installation screen process $self->{guest_installation_session} is not attached currently or already terminated on reboot/shutoff after installation finished or at certain stage");
+        if (!($self->has_autoconsole_for_sure)) {
+            record_info("Can not monitor and obtain guest $self->{guest_name} installation progress", "Installation screen process $self->{guest_installation_session} is not attached currently or already terminated on reboot/shutoff after installation finished or at certain stage or guest $self->{guest_name} has no autoconsole");
         }
         else {
             record_info("Can not monitor and obtain guest $self->{guest_name} installation progress", "Installation screen process $self->{guest_installation_session} is not attached currently");
@@ -1358,7 +1388,7 @@ sub check_guest_installation_result_via_ssh {
             record_info("Guest $self->{guest_name} can be connected via ssh using ip $self->{guest_ipaddr} directly", "So far so good.");
             virt_autotest::utils::add_alias_in_ssh_config('/root/.ssh/config', $_guest_transient_hostname, $self->{guest_domain_name}, $self->{guest_name}) if ($self->{guest_netaddr} eq 'host-default');
             save_screenshot;
-            $_guest_transient_hostname = script_output("timeout 30 ssh -vvv root\@$self->{guest_name} hostname", proceed_on_failure => 1);
+            $_guest_transient_hostname = script_output("timeout 30 ssh -vvv root\@$self->{guest_name} hostnamelll", proceed_on_failure => 1);
             save_screenshot;
             if ($_guest_transient_hostname ne '') {
                 record_info("Installation succeeded with good ssh connection for guest $self->{guest_name}", "Well done ! Mark it as PASSED");
@@ -1380,11 +1410,11 @@ sub attach_guest_installation_screen {
     save_screenshot;
     record_info("Attaching $self->{guest_name} installation screen process $self->{guest_installation_session}", "Trying hard");
     if (($self->{guest_installation_attached} eq 'false') or ($self->{guest_installation_attached} eq '')) {
-        if (($self->{guest_installation_session} eq '') and ($self->{guest_autoconsole} eq '')) {
+        if (($self->{guest_installation_session} eq '') and (!($self->has_autoconsole_for_sure))) {
             record_info("Guest $self->{guest_name} has no autoconsole and installation screen process $self->{guest_installation_session} may terminate on reboot/shutoff after installation finishes or at certain stage", "Reconnect by using screen -t $self->{guest_name} virsh console $self->{guest_name}");
             $self->do_attach_guest_installation_screen_without_session;
         }
-        elsif (($self->{guest_installation_session} eq '') and ($self->{guest_autoconsole} ne '')) {
+        elsif (($self->{guest_installation_session} eq '') and (($self->{guest_autoconsole} ne 'none') and ($self->{guest_noautoconsole} ne 'true'))) {
             record_info("Guest $self->{guest_name} has autoconsole but no installation screen session info to attach", "Trying to get installation screen session info");
             $self->get_guest_installation_session;
             if ($self->{guest_installation_session} eq '') {
@@ -1418,7 +1448,7 @@ sub do_attach_guest_installation_screen {
         record_info("Attached $self->{guest_name} installation screen process $self->{guest_installation_session} successfully", "Well done !");
     }
     else {
-        if ($self->{guest_autoconsole} eq '') {
+        if (!($self->has_autoconsole_for_sure)) {
             record_info("Guest $self->{guest_name} has no autoconsole and installation screen process $self->{guest_installation_session} may terminate on reboot/shutoff after installaton finishes or at certain stage", "Reconnect by using screen -t $self->{guest_name} virsh console $self->{guest_name}");
         }
         else {
@@ -1474,7 +1504,11 @@ sub do_attach_guest_installation_screen_without_session {
             my $_attach_timestamp = localtime();
             $_attach_timestamp =~ s/ |:/_/g;
             my $_guest_installation_log = "$common_log_folder/$self->{guest_name}/$self->{guest_name}" . "_installation_log_" . $_attach_timestamp;
-            $self->{guest_installation_session_command} = "screen -t $self->{guest_name} -L -Logfile $_guest_installation_log virsh console --force $self->{guest_name}";
+            script_run("> $self->{guest_installation_session_config};cat /etc/screenrc > $self->{guest_installation_session_config};sed -in \'/^logfile .*\$/d\' $self->{guest_installation_session_config}");
+            script_run("echo \"logfile $_guest_installation_log\" >> $self->{guest_installation_session_config}");
+	    #Use "screen" in the most compatible way, screen -t "title" -L -c "configuration file" "turn on output logging" "command to run".
+            #The -Logfile option is only supported by more recent operating systems.
+            $self->{guest_installation_session_command} = "screen -t $self->{guest_name} -L -c $self->{guest_installation_session_config} virsh console --force $self->{guest_name}";
             wait_screen_change {
                 type_string("$self->{guest_installation_session_command}\n");
             };
@@ -1567,6 +1601,24 @@ sub do_detach_guest_installation_screen {
     }
     $self->{guest_installation_attached} = 'false';
     return $self;
+}
+
+#Return true if guest has [guest_autoconsole] and [guest_noautoconsole] that are not equal to 'none' or empty which indicates guest definitely has autoconsole.
+#Empty value may indicate there is autoconsole or the opposite which depends detailed configuration of guest.
+sub has_autoconsole_for_sure {
+    my $self = shift;
+
+    $self->reveal_myself;
+    return (($self->{guest_autoconsole} ne 'none') and ($self->{guest_autoconsole} ne '') and ($self->{guest_noautoconsole} ne 'true') and ($self->{guest_noautoconsole} ne ''));
+}
+
+#Return true if guest has [guest_autoconsole] or [guest_noautoconsole] that are not equal to 'none' or 'true' which indicates guest definitely has no autoconsole.
+#Empty value may indicate there is autoconsole or the opposite which depends detailed configuration of guest.
+sub has_noautoconsole_for_sure {
+    my $self = shift;
+
+    $self->reveal_myself;
+    return (($self->{guest_autoconsole} eq 'none') or ($self->{guest_noautoconsole} eq 'true'));
 }
 
 #Record final guest installation result in [guest_installation_result] and set [stop_run] and [stop_timestamp].
@@ -1699,7 +1751,7 @@ sub post_fail_hook {
     $self->reveal_myself;
     $self->upload_guest_installation_logs;
     save_screenshot;
-    virt_utils::collect_host_and_guest_logs("", "", "/root");
+    virt_utils::collect_host_and_guest_logs("", "", "/root /var/log");
     save_screenshot;
     $self->upload_coredumps;
     save_screenshot;

@@ -10,6 +10,8 @@ text
 #Install from the first CD-ROM/DVD drive on the system
 cdrom
 
+test-command xxxxxxx
+
 #Configures additional yum repositories that may be used as sources for package installation
 repo --name="UEK4 kernel repo"  --baseurl=file://anaconda-addon
 
@@ -180,7 +182,7 @@ umask 077
 mkdir -p /root/.ssh
 touch /root/.ssh/authorized_keys
 echo >> /root/.ssh/authorized_keys
-echo "##Authorized-Keys##" >> /root/.ssh/authorized_keys
+echo "Authorized-Keys" >> /root/.ssh/authorized_keys
 chmod 700 /root/.ssh
 chmod 600 /root/.ssh/authorized_keys
 %end

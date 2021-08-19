@@ -163,7 +163,7 @@ function collect_system_log_and_diagnosis() {
 
 	if [[ ${target_type} == "guest" ]];then
 	   target_user="root"
-	   target_pass="novell"
+	   target_pass="novell1"
 	   sshpass_ssh_cmd="sshpass -p ${target_pass} ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no ${target_user}@${target_ipaddr}"
 	fi	
 
@@ -268,7 +268,7 @@ function collect_extra_logs_from_guest() {
       
         if [[ ${extra_logs} != "" ]];then
            local guest_user="root"
-           local guest_pass="novell"
+           local guest_pass="novell1"
            local sshpass_ssh_cmd="sshpass -p ${guest_pass} ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no ${guest_user}@${guest_ipaddr}"
            local guest_transformed=${guest_domain//./_}
            local ret_result=128
