@@ -422,6 +422,7 @@ Host *
     UserKnownHostsFile /dev/null
     StrictHostKeyChecking no
     User root
+PubkeyAcceptedKeyTypes=+ssh-dss
 EOF
 ");
     }
