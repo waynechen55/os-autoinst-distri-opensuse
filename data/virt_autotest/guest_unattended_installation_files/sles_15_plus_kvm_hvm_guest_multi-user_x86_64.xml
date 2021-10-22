@@ -61,6 +61,14 @@
       <start_multipath t="boolean">false</start_multipath>
     </storage>
   </general>
+  <suse_register>
+    <do_registration config:type="boolean">##Do-Registration##</do_registration>
+    <email>##Registration-UserName##</email>
+    <reg_code>##Registration-Code##</reg_code>
+    <install_updates config:type="boolean">true</install_updates>
+    <addons config:type="list">
+    </addons>
+  </suse_register>
   <bootloader t="map">
     <global t="map">
       <append>console=tty console=ttyS0,115200n8 mitigations=auto</append>
@@ -131,9 +139,6 @@
     <import t="boolean">false</import>
     <copy_config t="boolean">false</copy_config>
   </ssh_import>
-  <suse_register t="map">
-    <do_registration t="boolean">false</do_registration>
-  </suse_register>
   <report>
     <errors>
       <log t="boolean">true</log>
@@ -279,7 +284,8 @@ else
         sed -i "/^[# ]*$key */{h;s/^[# ]*$key *.*\$/$key yes/};\${x;/^\$/{s//$key yes/;H};x}" $sshd_config_file
     done
 fi
-echo -e "PubkeyAcceptedKeyTypes=+ssh-dss" > $sshd_config_file
+sed -i -r '/.*PubkeyAcceptedKeyTypes.*/d' $sshd_config_file  
+echo -e "PubkeyAcceptedKeyTypes=+ssh-dss" >> $sshd_config_file 		
 [ -d /root/.ssh ] || mkdir -p /root/.ssh; chmod 700 /root/.ssh
 touch /root/.ssh/authorized_keys; chmod 600 /root/.ssh/authorized_keys
 echo "##Authorized-Keys##" >> /root/.ssh/authorized_keys
