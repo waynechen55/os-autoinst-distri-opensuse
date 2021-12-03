@@ -108,7 +108,7 @@ sub login_to_console {
             send_key 'down';
             send_key 'ret';
             #wait sshd up
-            assert_screen('sshd-server-started', 180);
+            assert_screen('sshd-server-started', 3600);
             save_screenshot;
             #switch to ssh console
             use_ssh_serial_console;
