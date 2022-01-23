@@ -155,7 +155,7 @@ sub login_to_console {
     sleep 30;    # Wait for the GRUB to disappier (there's no chance for the system to boot faster
     save_screenshot;
 
-    for (my $i = 0; $i <= 4; $i++) {
+    for (my $i = 0; $i <= 30; $i++) {
         last if (check_screen([qw(linux-login virttest-displaymanager)], 60));
         save_screenshot;
         send_key 'ret';
