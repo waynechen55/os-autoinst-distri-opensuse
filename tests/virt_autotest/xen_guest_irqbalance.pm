@@ -75,7 +75,7 @@ sub run_test {
 
         # Generate network load in guest
         my $ping_url = "download.opensuse.org";
-        assert_script_run("ssh root\@$guest \"ping -f -c 500 $ping_url\"");
+	#assert_script_run("ssh root\@$guest \"ping -f -c 500 $ping_url\"");
 
         # re-caculate the network interrupts distribution
         # the increased NIC IRQs should be distributed in CPU cores in balance
