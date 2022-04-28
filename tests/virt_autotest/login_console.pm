@@ -146,7 +146,7 @@ sub login_to_console {
             #wait grub2 boot menu after first stage upgrade
             assert_screen('grub2', 300);
             #wait sshd up after first stage upgrade
-            die "Can not connect to machine to perform offline upgrade second stage via ssh" unless (check_port_state(get_required_var('SUT_IP'), 22, 20));
+            die "Can not connect to machine to perform offline upgrade second stage via ssh" unless (check_port_state(get_required_var('SUT_IP'), 22, 120));
             save_screenshot;
             #switch to ssh console
             use_ssh_serial_console;
