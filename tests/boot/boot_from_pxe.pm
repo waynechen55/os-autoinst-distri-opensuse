@@ -70,7 +70,8 @@ sub run {
 
         my $openqa_url = get_required_var('OPENQA_URL');
         $openqa_url = 'http://' . $openqa_url unless $openqa_url =~ /http:\/\//;
-        my $repo = $openqa_url . "/assets/repo/${image_name}";
+	my $repo = "http://dist.suse.de/install/SLP/SLE-15-SP4-Full-GMC-202205/x86_64/DVD1/";
+	#my $repo = $openqa_url . "/assets/repo/${image_name}";
         my $key_used = '';
         if (is_remote_backend && is_aarch64 && is_supported_suse_domain) {
             $key_used = 'c';
