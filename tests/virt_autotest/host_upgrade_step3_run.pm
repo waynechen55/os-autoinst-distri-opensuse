@@ -39,7 +39,7 @@ sub run {
         zypper_call("in qa_lib_virtauto", 300);
     }
     update_guest_configurations_with_daily_build();
-    $self->run_test(5400, "Host upgrade virtualization test pass", "no", "yes", "/var/log/qa/", "host-upgrade-postVerify-logs");
+    $self->run_test(3600 / get_var('TIMEOUT_SCALE', 1), "Host upgrade virtualization test pass", "no", "yes", "/var/log/qa/", "host-upgrade-postVerify-logs", "1");
 }
 
 1;

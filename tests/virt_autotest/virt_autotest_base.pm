@@ -92,6 +92,7 @@ sub save_test_configuration {
     $self->{log_dir} = $log_dir;
     $self->{compressed_log_name} = $compressed_log_name;
     $self->{upload_guest_assets_flag} = $upload_guest_assets_flag;
+    $self->{expect_not_found} = $expect_not_found;
 }
 
 #This is the subroutine called inside post_execute_script_run. It aims to do configurations have to be done after script
@@ -125,7 +126,7 @@ sub post_execute_script_run {
     save_screenshot;
 
     my $output = $self->{script_output};
-    if ($self->{assert_pattern}) {
+    if ($self->{assert_pattern} and !$self->{expect_not_found}) {
         diag("Going to do assertion after test. Use assert pattern: $self->{assert_pattern} provided by test module.");
         unless ($output =~ /$self->{assert_pattern}/m) {
             assert_script_run("grep -E \"$self->{assert_pattern}\" $self->{log_dir} -r || zcat /tmp/$self->{compressed_log_name}.tar.gz | grep -aE \"$self->{assert_pattern}\"");
@@ -161,7 +162,7 @@ sub execute_script_run {
     }
 
     enter_cmd "(" . $cmd . "; echo $pattern) 2>&1 | tee -a /dev/$serialdev";
-    $self->{script_output} = wait_serial($pattern, $timeout);
+    $self->{script_output} = wait_serial($pattern, $timeout, $self->{expect_not_found});
     save_screenshot;
 
     if (!$self->{script_output} or !defined $self->{script_output}) {
@@ -183,10 +184,11 @@ sub push_junit_log {
 }
 
 sub run_test {
-    my ($self, $timeout, $assert_pattern, $add_junit_log_flag, $upload_virt_log_flag, $log_dir, $compressed_log_name, $upload_guest_assets_flag) = @_;
+    my ($self, $timeout, $assert_pattern, $add_junit_log_flag, $upload_virt_log_flag, $log_dir, $compressed_log_name, $upload_guest_assets_flag, $expect_not_found) = @_;
     if (!$timeout) {
         $timeout = 300;
     }
+    $expect_not_found //= 0;
 
     my $test_cmd = $self->get_script_run();
     #FOR S390X LPAR
@@ -195,7 +197,7 @@ sub run_test {
         return;
     }
 
-    $self->save_test_configuration($assert_pattern, $add_junit_log_flag, $upload_virt_log_flag, $log_dir, $compressed_log_name, $upload_guest_assets_flag);
+    $self->save_test_configuration($assert_pattern, $add_junit_log_flag, $upload_virt_log_flag, $log_dir, $compressed_log_name, $upload_guest_assets_flag, $expect_not_found);
     $self->execute_script_run($test_cmd, $timeout);
     $self->post_execute_script_run;
     $self->post_run_test;

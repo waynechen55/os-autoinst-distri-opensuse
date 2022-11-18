@@ -37,8 +37,8 @@ sub post_execute_script_configuration {
 
 sub run {
     my $self = shift;
-    $self->run_test(12600, "Host upgrade to .* is done. Need to reboot system|Executing host upgrade to .* offline",
-        "no", "yes", "/var/log/qa/", "host-upgrade-prepAndUpgrade");
+    $self->run_test(10800 /get_var('TIMEOUT_SCALE', 1), "Host upgrade to .* is done. Need to reboot system|Executing host upgrade to .* offline",
+        "no", "yes", "/var/log/qa/", "host-upgrade-prepAndUpgrade", "1");
 }
 
 1;
