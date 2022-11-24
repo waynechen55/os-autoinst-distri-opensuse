@@ -13,7 +13,7 @@ use Utils::Architectures;
 use strict;
 use warnings;
 use virt_utils;
-use Utils::Backends 'is_remote_backend';
+use Utils::Backends qw(use_ssh_serial_console is_remote_backend);
 use ipmi_backend_utils;
 
 sub get_script_run {
@@ -37,6 +37,7 @@ sub post_execute_script_configuration {
 
 sub run {
     my $self = shift;
+    use_ssh_serial_console;
     $self->run_test(12600, "Host upgrade to .* is done. Need to reboot system|Executing host upgrade to .* offline",
         "no", "yes", "/var/log/qa/", "host-upgrade-prepAndUpgrade");
 }
