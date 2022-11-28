@@ -27,12 +27,13 @@ use version_utils 'is_sle';
 use virt_autotest_base;
 use virt_autotest::utils;
 use virt_utils;
+use Carp;
 
 our @EXPORT
   = qw(download_network_cfg prepare_network restore_standalone destroy_standalone restart_network
   restore_guests restore_network destroy_vir_network restore_libvirt_default enable_libvirt_log pload_debug_log
   check_guest_status check_guest_module check_guest_ip save_guest_ip test_network_interface hosts_backup
-  hosts_restore get_free_mem get_active_pool_and_available_space clean_all_virt_networks);
+  hosts_restore get_free_mem get_active_pool_and_available_space clean_all_virt_networks update_guest_ip);
 
 sub check_guest_ip {
     my ($guest, %args) = @_;
@@ -342,6 +343,28 @@ sub clean_all_virt_networks {
         save_screenshot;
     }
     record_info("All existing virtual networks: \n$_virt_networks \nhave been destroy and undefined.", script_output("ip a; ip route show all"));
+}
+
+=head2 update_guest_ip
+
+  update_guest_ip(guest => $guest_name, net => $guest_network)
+
+Guest ip address may change after reset or reboot. The outdated mapping for guest
+in /etc/hosts leads to networking connection failure. So it becomes necessary to
+detect and update newly discovered ip address in /etc/hosts if reaching guest by 
+using outdated ip address turns out to be impossible. This subroutine accepts two
+arguments, guest is domain name and net is network to which guest is connected.
+
+=cut
+
+sub update_guest_ip {    
+    my (%args) = @_;
+    $args{guest} //= '';
+    $args{net} //= 'br123';
+    croak("Guest name must be given for the function to proceed.") if (!$args{guest});
+
+    record_info ("Check and update guest $args{guest} ip", "Update ip address to guest name $args{guest} mapping in /etc/hosts if guest $args{guest} can not be reached with previous ip address");
+    virt_autotest::virtual_network_utils::check_guest_ip($args{guest}, net => $args{net}) if (script_retry("nmap $args{guest} -PN -p ssh | grep open", delay => 2, retry => 30, die => 0) != 0);
 }
 
 1;

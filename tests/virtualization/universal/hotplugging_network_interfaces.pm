@@ -17,6 +17,7 @@ use utils;
 use virt_utils;
 use version_utils;
 use hotplugging_utils;
+use virt_autotest::virtual_network_utils;
 
 # Magic MAC prefix for temporary devices. Must be of the format 'XX:XX:XX:XX'
 my $MAC_PREFIX = '00:16:3f:32';
@@ -55,6 +56,10 @@ sub add_virtual_network_interface {
 sub run_test {
     my ($self) = @_;
     my ($sles_running_version, $sles_running_sp) = get_os_release;
+
+    if (get_var('VIRT_AUTOTEST')) {
+        virt_autotest::virtual_network_utils::update_guest_ip(guest => $_) foreach (keys %virt_autotest::common::guests);
+    }
 
     record_info "SSH", "Check if guests are online with SSH";
     wait_guest_online($_) foreach (keys %virt_autotest::common::guests);
