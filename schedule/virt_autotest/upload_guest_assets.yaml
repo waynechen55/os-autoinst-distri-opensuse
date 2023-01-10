@@ -1,0 +1,20 @@
+---
+name: upload_guest_assets.yaml
+description: |
+  Maintainer: Wayne Chen (wchen@suse.com) qe-virt@suse.de
+  Virtualization Guest Installation on SLE Micro KVM Host
+
+vars:
+  VIRT_AUTOTEST: 1
+  VIRT_PRJ1_GUEST_INSTALL: 1
+  VIRT_UNIFIED_GUEST_INSTALL: 1
+  VIDEOMODE: text
+  DO_NOT_INSTALL_HOST: 0
+  SKIP_GUEST_INSTALL: 0
+  #PATTERNS: default,kvm
+  IPXE: 0
+  MAX_JOB_TIME: 10800
+schedule:
+  - virt_autotest/login_console
+  - virt_autotest/upload_guest_assets
+...
