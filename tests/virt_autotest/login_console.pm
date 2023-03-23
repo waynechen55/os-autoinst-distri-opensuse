@@ -23,7 +23,7 @@ sub set_ssh_console_timeout_before_use {
     select_console('root-console');
     set_ssh_console_timeout('/etc/ssh/sshd_config', '28800');
     reset_consoles;
-    select_console 'sol', await_console => 1;
+    select_console 'sol', await_console => 0;
     send_key 'ret';
     check_screen([qw(linux-login virttest-displaymanager)], 60);
     save_screenshot;
@@ -192,7 +192,7 @@ sub login_to_console {
     }
 
     # Set ssh console timeout for thunderx machine
-    set_ssh_console_timeout_before_use if (is_remote_backend && is_aarch64 && get_var('IPMI_HW') eq 'thunderx');
+    set_ssh_console_timeout_before_use if (is_remote_backend and is_x86_64 and get_var('VIRT_AUTOTEST', ''));
     # use console based on ssh to avoid unstable ipmi
     use_ssh_serial_console;
     # double-check xen role for xen host
