@@ -21,7 +21,6 @@
         <ul>
           <li><a href="#get_trento_deployment">get_trento_deployment</a></li>
           <li><a href="#get_resource_group">get_resource_group</a></li>
-          <li><a href="#get_qesap_resource_group">get_qesap_resource_group</a></li>
           <li><a href="#cluster_config">cluster_config</a></li>
           <li><a href="#deploy_vm">deploy_vm</a></li>
           <li><a href="#trento_acr_azure">trento_acr_azure</a></li>
@@ -32,7 +31,6 @@
           <li><a href="#get_acr_name">get_acr_name</a></li>
           <li><a href="#get_trento_ip">get_trento_ip</a></li>
           <li><a href="#get_trento_private_ip">get_trento_private_ip</a></li>
-          <li><a href="#get_vnet">get_vnet</a></li>
           <li><a href="#get_trento_password">get_trento_password</a></li>
           <li><a href="#az_delete_group">az_delete_group</a></li>
           <li><a href="#az_vm_ssh_cmd">az_vm_ssh_cmd</a></li>
@@ -45,8 +43,12 @@
           <li><a href="#cluster_print_cluster_status">cluster_print_cluster_status</a></li>
           <li><a href="#cluster_hdbadm">cluster_hdbadm</a></li>
           <li><a href="#cluster_wait_status">cluster_wait_status</a></li>
+          <li><a href="#cluster_wait_status_by_regex">cluster_wait_status_by_regex</a></li>
           <li><a href="#cluster_trento_net_peering">cluster_trento_net_peering</a></li>
           <li><a href="#podman_self_check">podman_self_check</a></li>
+          <li><a href="#podman_delete_all">podman_delete_all</a></li>
+          <li><a href="#podman_wait">podman_wait</a></li>
+          <li><a href="#podman_exec">podman_exec</a></li>
           <li><a href="#cypress_configs">cypress_configs</a></li>
           <li><a href="#cypress_install_container">cypress_install_container</a></li>
           <li><a href="#cypress_log_upload">cypress_log_upload</a></li>
@@ -102,10 +104,6 @@
 <h3 id="get_resource_group">get_resource_group</h3>
 
 <p>Return a string to be used as cloud resource group. It contains the JobId</p>
-
-<h3 id="get_qesap_resource_group">get_qesap_resource_group</h3>
-
-<p>Query and return the resource group used by the qe-sap-deployment</p>
 
 <h3 id="cluster_config">cluster_config</h3>
 
@@ -178,18 +176,6 @@
 <h3 id="get_trento_private_ip">get_trento_private_ip</h3>
 
 <p>Return the private IP of the Trento instance, needed by the agent configuration</p>
-
-<h3 id="get_vnet">get_vnet</h3>
-
-<p>Return the output of az network vnet list =over 1</p>
-
-<dl>
-
-<dt id="RESOURCE_GROUP---resource-group-name-to-query"><b>RESOURCE_GROUP</b> - resource group name to query</dt>
-<dd>
-
-</dd>
-</dl>
 
 <h3 id="get_trento_password">get_trento_password</h3>
 
@@ -285,7 +271,47 @@
 
 <h3 id="cluster_wait_status">cluster_wait_status</h3>
 
-<p>Remotly run &#39;SAPHanaSR-showAttr&#39; in a loop on $host, wait output that match in f_status callback test</p>
+<p>This function allow to wait for a specific output for &#39;SAPHanaSR-showAttr&#39;, on one specific remote host. Remotely runs &#39;SAPHanaSR-showAttr&#39; on $host. Runs &#39;SAPHanaSR-showAttr&#39; multiple times in a loop, retying until the output PASS the test &#39;f_status&#39;. The &#39;f_status&#39; test is passed as a &quot;function pointer&quot;.</p>
+
+<p>Usage example: cluster_wait_status($primary_host, sub { ((shift =~ m/.+UNDEFINED.+SFAIL/) &amp;&amp; (shift =~ m/.+PROMOTED.+PRIM/)); });</p>
+
+<p>This one result in SAPHanaSR-showAttr to be called on the HANA PRIMARY until : the line about vmhana01 match with regexp .+UNDEFINED.+SFAIL AND the line about vmhana02 match with regexp .+PROMOTED.+PRIM</p>
+
+<dl>
+
+<dt id="HOST---Ansible-name-or-filter-for-the-remote-host-where-to-run-SAPHanaSR-showAttr"><b>HOST</b> - Ansible name or filter for the remote host where to run &#39;SAPHanaSR-showAttr&#39;</dt>
+<dd>
+
+</dd>
+<dt id="F_STATUS---Function-pointer-to-test-the-SAPHanaSR-showAttr-stdout.-Provided-function-has-to-support-two-arguments.-cluster_wait_status-will-call-the-f_status-passing-as-first-arguments-only-the-output-lines-of-SAPHanaSR-showAttr-about-the-vmhana01-and-as-second-arguments-lines-about-vmhana02"><b>F_STATUS</b> - Function pointer to test the &#39;SAPHanaSR-showAttr&#39; stdout. Provided function has to support two arguments. `cluster_wait_status` will call the `f_status` passing as first arguments only the output lines of &#39;SAPHanaSR-showAttr&#39; about the vmhana01, and as second arguments lines about vmhana02</dt>
+<dd>
+
+</dd>
+<dt id="TIMEOUT---Max-time-to-retry.-Die-if-timeout"><b>TIMEOUT</b> - Max time to retry. Die if timeout</dt>
+<dd>
+
+</dd>
+</dl>
+
+<h3 id="cluster_wait_status_by_regex">cluster_wait_status_by_regex</h3>
+
+<p>Remotely run &#39;SAPHanaSR-showAttr&#39; in a loop on $host, wait output that matches regular expression =over 3</p>
+
+<dl>
+
+<dt id="HOST---Ansible-name-or-filter-for-the-remote-host-where-to-run-SAPHanaSR-showAttr1"><b>HOST</b> - Ansible name or filter for the remote host where to run &#39;SAPHanaSR-showAttr&#39;</dt>
+<dd>
+
+</dd>
+<dt id="TIMEOUT---Max-time-to-retry.-Die-if-timeout1"><b>TIMEOUT</b> - Max time to retry. Die if timeout</dt>
+<dd>
+
+</dd>
+<dt id="REGULAR_EXPRESSION---Regular-expression-to-match-the-text-to-find"><b>REGULAR_EXPRESSION</b> - Regular expression to match the text to find</dt>
+<dd>
+
+</dd>
+</dl>
 
 <h3 id="cluster_trento_net_peering">cluster_trento_net_peering</h3>
 
@@ -294,6 +320,46 @@
 <h3 id="podman_self_check">podman_self_check</h3>
 
 <p>Perform some generic checks related to the podman installation itself and the relevant parameters of the current machine environment.</p>
+
+<h3 id="podman_delete_all">podman_delete_all</h3>
+
+<p>Delete all podman containers with name containing CYPRESS_IMAGE_TAG</p>
+
+<h3 id="podman_wait">podman_wait</h3>
+
+<p>Check for status of running container with given name. Polling state until container Status become Exit or timeout. Gently terminate podman in case of timeout. Return the container Exit status.</p>
+
+<dl>
+
+<dt id="NAME---Name-of-the-running-container-used-to-filter-the-podman-ps"><b>NAME</b> - Name of the running container used to filter the podman ps</dt>
+<dd>
+
+</dd>
+<dt id="TIMEOUT---Timeout-waiting-container-to-exit"><b>TIMEOUT</b> - Timeout waiting container to exit</dt>
+<dd>
+
+</dd>
+<dt id="CYPRESS_LOG---File-used-to-redirect-the-cypress-console-output"><b>CYPRESS_LOG</b> - File used to redirect the cypress console output</dt>
+<dd>
+
+</dd>
+</dl>
+
+<h3 id="podman_exec">podman_exec</h3>
+
+<p>Run a command within the running container</p>
+
+<dl>
+
+<dt id="NAME---Name-of-the-running-container-where-to-exec-commands"><b>NAME</b> - Name of the running container where to exec commands</dt>
+<dd>
+
+</dd>
+<dt id="CMD---command-to-run-within-the-container"><b>CMD</b> - command to run within the container</dt>
+<dd>
+
+</dd>
+</dl>
 
 <h3 id="cypress_configs">cypress_configs</h3>
 
@@ -337,15 +403,11 @@
 <dd>
 
 </dd>
-<dt id="TIMEOUT---Integer-used-as-timeout-for-the-cypress-command-execution"><b>TIMEOUT</b> - Integer used as timeout for the cypress command execution</dt>
-<dd>
-
-</dd>
 <dt id="LOG_PREFIX---String-of-the-command-to-be-executed-remotely"><b>LOG_PREFIX</b> - String of the command to be executed remotely</dt>
 <dd>
 
 </dd>
-<dt id="FAILOK---Integer-boolean-value.-0:test-marked-as-failure-if-the-podman-cypress-return-not-0-exit-code.-1:all-not-0-podman-cypress-exit-code-are-ignored.-SoftFail-reported"><b>FAILOK</b> - Integer boolean value. 0:test marked as failure if the podman/cypress return not 0 exit code. 1:all not 0 podman/cypress exit code are ignored. SoftFail reported.</dt>
+<dt id="TIMEOUT---Integer-used-as-timeout-for-the-cypress-command-execution"><b>TIMEOUT</b> - Integer used as timeout for the cypress command execution</dt>
 <dd>
 
 </dd>
@@ -377,19 +439,19 @@
 
 <dl>
 
-<dt id="Around-line-103">Around line 103:</dt>
+<dt id="Around-line-108">Around line 108:</dt>
 <dd>
 
 <p>Unknown directive: =hean3</p>
 
 </dd>
-<dt id="Around-line-250">Around line 250:</dt>
+<dt id="Around-line-242">Around line 242:</dt>
 <dd>
 
 <p>&#39;=item&#39; outside of any &#39;=over&#39;</p>
 
 </dd>
-<dt id="Around-line-518">Around line 518:</dt>
+<dt id="Around-line-866">Around line 866:</dt>
 <dd>
 
 <p>&#39;=item&#39; outside of any &#39;=over&#39;</p>
