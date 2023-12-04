@@ -53,7 +53,13 @@
       <li><a href="#script_output_retry_check">script_output_retry_check</a></li>
       <li><a href="#collect_sbd_delay_parameters">collect_sbd_delay_parameters</a></li>
       <li><a href="#calculate_sbd_start_delay">calculate_sbd_start_delay</a></li>
-      <li><a href="#check_iscsi_failure">check_iscsi_failure</a></li>
+      <li><a href="#setup_sbd_delay-setup_sbd_delay">setup_sbd_delay setup_sbd_delay()</a></li>
+      <li><a href="#set_sbd_service_timeout-set_sbd_service_timeout-service_timeout">set_sbd_service_timeout set_sbd_service_timeout($service_timeout)</a></li>
+      <li><a href="#check_iscsi_failure">check_iscsi_failure</a>
+        <ul>
+          <li><a href="#cluster_status_matches_regex">cluster_status_matches_regex</a></li>
+        </ul>
+      </li>
     </ul>
   </li>
 </ul><h1>lib/hacluster.pm</h1>
@@ -318,11 +324,27 @@
 
 <p>If <code>%sbd_parameters</code> argument is omitted, then function will try to obtain the values from the configuration files.</p>
 
+<h2 id="setup_sbd_delay-setup_sbd_delay">setup_sbd_delay setup_sbd_delay()</h2>
+
+<h2 id="set_sbd_service_timeout-set_sbd_service_timeout-service_timeout">set_sbd_service_timeout set_sbd_service_timeout($service_timeout)</h2>
+
 <h2 id="check_iscsi_failure">check_iscsi_failure</h2>
 
 <pre><code>check_iscsi_failure();</code></pre>
 
 <p>Workaround for bsc#1129385, checks system log for iSCSI connection failures, if necessary restarts iscsi and pacemaker service</p>
+
+<h3 id="cluster_status_matches_regex">cluster_status_matches_regex</h3>
+
+<p>Check crm status output against a hardcode regular expression in order to check the cluster health</p>
+
+<dl>
+
+<dt id="SHOW_CLUSTER_STATUS---Output-from-crm-status-command"><b>SHOW_CLUSTER_STATUS</b> - Output from &#39;crm status&#39; command</dt>
+<dd>
+
+</dd>
+</dl>
 
 
 </body>
