@@ -15,11 +15,11 @@ use utils;
 use testapi;
 use bmwqemu;
 use ipmi_backend_utils;
-use version_utils qw(is_upgrade is_tumbleweed is_sle is_leap);
+use version_utils qw(is_upgrade is_tumbleweed is_sle is_leap is_sle_micro);
 use bootloader_setup 'prepare_disks';
 use Utils::Architectures;
 use virt_autotest::utils qw(is_kvm_host is_xen_host);
-
+use Utils::Backends qw(is_ipmi);
 use HTTP::Tiny;
 use IPC::Run;
 use Time::HiRes 'sleep';
@@ -60,20 +60,17 @@ sub set_bootscript {
     my $host = get_required_var('SUT_IP');
     my $arch = get_required_var('ARCH');
     my $autoyast = get_var('AUTOYAST', '');
-    my $regurl = get_var('VIRT_AUTOTEST') ? get_var('HOST_SCC_URL', '') : get_var('SCC_URL', '');
-    my $console = get_var('IPXE_CONSOLE', '');
     my $mirror_http = get_required_var('MIRROR_HTTP');
 
     # trim all strings from variables to get rid of bogus whitespaces
     $arch =~ s/^\s+|\s+$//g;
     $autoyast =~ s/^\s+|\s+$//g;
-    $regurl =~ s/^\s+|\s+$//g;
-    $console =~ s/^\s+|\s+$//g;
     $mirror_http =~ s/^\s+|\s+$//g;
 
-    my $install = $mirror_http;
+    my $install_method = (is_ipmi and is_sle_micro) ? "rd.kiwi.install.pxe rd.kiwi.install.image" : "install";
     my $kernel = $mirror_http;
     my $initrd = $mirror_http;
+    my $install = (is_ipmi and is_sle_micro) ? "$mirror_http/SL-Micro.x86_64-6.1.xz" : $mirror_http;
 
     if ($arch eq 'aarch64') {
         $kernel .= '/boot/aarch64/linux';
@@ -88,41 +85,7 @@ sub set_bootscript {
         $install .= "?device=$interface ifcfg=$interface=dhcp4 ";
     }
 
-    my $cmdline_extra;
-    $cmdline_extra .= " regurl=$regurl " if ($regurl and !is_usb_boot);
-    $cmdline_extra .= " console=$console " if $console;
-    $cmdline_extra .= " root=/dev/ram0 initrd=initrd " if (check_var('IPXE_UEFI', '1'));
-    $cmdline_extra .= " textmode=1 " if get_var('IPXE_UEFI') or check_var('VIDEOMODE', 'text');
-    $cmdline_extra .= " self_update=0 " if (check_var("INSTALLER_NO_SELF_UPDATE", 1));
-
-    # Support passing EXTRA_PXE_CMDLINE to bootscripts
-    $cmdline_extra .= get_var('EXTRA_PXE_CMDLINE') . ' ' if get_var('EXTRA_PXE_CMDLINE');
-
-    if ($autoyast ne '') {
-        $cmdline_extra .= " autoyast=$autoyast sshd=1 sshpassword=$testapi::password ";
-    } else {
-        $cmdline_extra .= " ssh=1 sshpassword=$testapi::password ";
-        $cmdline_extra .= " vnc=1 VNCPassword=$testapi::password " unless check_var('VIDEOMODE', 'text');
-    }
-    $cmdline_extra .= " plymouth.enable=0 ";
-
-    $cmdline_extra .= " video=1024x768 vt.color=0x07 " if check_var('VIDEOMODE', 'text');
-    # Support either IPXE_CONSOLE=ttyS1,115200 or SERIALDEV=ttyS1
-    my $serial_dev;
-    if (get_var('IPXE_CONSOLE')) {
-        get_var('IPXE_CONSOLE') =~ /^(\w+)/;
-        $serial_dev = $1;
-    }
-    else {
-        $serial_dev = get_var('SERIALDEV', 'ttyS1');
-        $cmdline_extra .= " console=$serial_dev,115200 ";
-    }
-
-    # Extra options for virtualization tests with ipmi backend
-    $cmdline_extra .= " Y2DEBUG=1 linuxrc.log=/dev/$serial_dev linuxrc.core=/dev/$serial_dev linuxrc.debug=4,trace ";
-    $cmdline_extra .= " reboot_timeout=" . get_var('REBOOT_TIMEOUT', 0) . ' '
-      unless (is_leap('<15.2') || is_sle('<15-SP2'));
-    $cmdline_extra .= get_var('EXTRABOOTPARAMS', '');
+    my $cmdline_extra = set_bootscript_cmdline_extra();
 
     my $bootscript = <<"END_BOOTSCRIPT";
 #!ipxe
@@ -131,7 +94,7 @@ echo ++++++++++++ openQA ipxe boot ++++++++++++
 echo +    Host: $host
 echo ++++++++++++++++++++++++++++++++++++++++++
 
-kernel $kernel install=$install $cmdline_extra
+kernel $kernel $install_method=$install $cmdline_extra
 initrd $initrd
 boot
 END_BOOTSCRIPT
@@ -170,6 +133,77 @@ sub enter_o3_ipxe_boot_entry {
     }
 }
 
+sub set_bootscript_cmdline_extra {
+
+    my $cmdline_extra;
+    my $regurl = get_var('VIRT_AUTOTEST') ? get_var('HOST_SCC_URL', '') : get_var('SCC_URL', '');
+    my $console = get_var('IPXE_CONSOLE', '');
+    my $autoyast = get_var('AUTOYAST', '');
+
+    # trim all strings from variables to get rid of bogus whitespaces
+    $regurl =~ s/^\s+|\s+$//g;
+    $console =~ s/^\s+|\s+$//g;
+    $autoyast =~ s/^\s+|\s+$//g;
+
+    if (is_ipmi and is_sle_micro) {
+        my $cmdline_firstboot_config = set_bootscript_firstboot_config();
+        $cmdline_extra .= " $cmdline_firstboot_config";
+    }
+    $cmdline_extra .= " regurl=$regurl " if ($regurl and !is_usb_boot);
+    $cmdline_extra .= " console=$console " if $console;
+    $cmdline_extra .= " root=/dev/ram0 initrd=initrd " if (check_var('IPXE_UEFI', '1'));
+    $cmdline_extra .= " textmode=1 " if get_var('IPXE_UEFI') or check_var('VIDEOMODE', 'text');
+    $cmdline_extra .= " self_update=0 " if (check_var("INSTALLER_NO_SELF_UPDATE", 1));
+
+    # Support passing EXTRA_PXE_CMDLINE to bootscripts
+    $cmdline_extra .= get_var('EXTRA_PXE_CMDLINE') . ' ' if get_var('EXTRA_PXE_CMDLINE');
+
+    if ($autoyast ne '') {
+        $cmdline_extra .= " autoyast=$autoyast sshd=1 sshpassword=$testapi::password ";
+    } else {
+        if (!(is_ipmi and is_sle_micro)) {
+            $cmdline_extra .= " ssh=1 sshpassword=$testapi::password ";
+            $cmdline_extra .= " vnc=1 VNCPassword=$testapi::password " unless check_var('VIDEOMODE', 'text');
+        }
+    }
+    $cmdline_extra .= " plymouth.enable=0 ";
+
+    $cmdline_extra .= " video=1024x768 vt.color=0x07 " if check_var('VIDEOMODE', 'text');
+    # Support either IPXE_CONSOLE=ttyS1,115200 or SERIALDEV=ttyS1
+    my $serial_dev;
+    if (get_var('IPXE_CONSOLE')) {
+        get_var('IPXE_CONSOLE') =~ /^(\w+)/;
+        $serial_dev = $1;
+    }
+    else {
+        $serial_dev = get_var('SERIALDEV', 'ttyS1');
+        $cmdline_extra .= " console=$serial_dev,115200 ";
+    }
+
+    # Extra options for virtualization tests with ipmi backend
+    $cmdline_extra .= " Y2DEBUG=1 linuxrc.log=/dev/$serial_dev linuxrc.core=/dev/$serial_dev linuxrc.debug=4,trace ";
+    $cmdline_extra .= " reboot_timeout=" . get_var('REBOOT_TIMEOUT', 0) . ' '
+      unless (is_leap('<15.2') || is_sle('<15-SP2'));
+    $cmdline_extra .= get_var('EXTRABOOTPARAMS', '');
+
+    return $cmdline_extra;
+}
+
+sub set_bootscript_firstboot_config {
+
+    my $cmdline_firstboot_config;
+    my $firstboot_config = get_required_var("FIRST_BOOT_CONFIG");
+    if ($firstboot_config =~ /ignition/ig) {
+        $cmdline_firstboot_config = "ignition.firstboot";
+        $cmdline_firstboot_config .= " ignition.config.url=" . autoinst_url("data/virt_autotest/host_unattended_installation_files/ignition/config.ign." . get_var('ARCH'));
+    }
+    if ($firstboot_config =~ /combustion/ig) {
+        $cmdline_firstboot_config .= " combustion.firstboot";
+        $cmdline_firstboot_config .= " combustion.url=" . autoinst_url("data/virt_autotest/host_unattended_installation_files/combustion/script." . get_var('ARCH'));
+    }
+
+    return $cmdline_firstboot_config;
+}
 
 sub run {
     my $self = shift;
