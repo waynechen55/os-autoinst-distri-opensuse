@@ -46,6 +46,7 @@
           <li><a href="#qesap_ansible_script_output_file">qesap_ansible_script_output_file</a></li>
           <li><a href="#qesap_ansible_script_output">qesap_ansible_script_output</a></li>
           <li><a href="#qesap_ansible_fetch_file">qesap_ansible_fetch_file</a></li>
+          <li><a href="#qesap_ansible_reg_module">qesap_ansible_reg_module</a></li>
           <li><a href="#qesap_create_aws_credentials">qesap_create_aws_credentials</a></li>
           <li><a href="#qesap_create_aws_config">qesap_create_aws_config</a></li>
           <li><a href="#qesap_remote_hana_public_ips">qesap_remote_hana_public_ips</a></li>
@@ -69,9 +70,8 @@
           <li><a href="#qesap_import_instances">qesap_import_instances</a></li>
           <li><a href="#qesap_export_instances">qesap_export_instances</a></li>
           <li><a href="#qesap_is_job_finished">qesap_is_job_finished</a></li>
-          <li><a href="#qesap_az_get_vnet">qesap_az_get_vnet</a></li>
           <li><a href="#qesap_az_get_resource_group">qesap_az_get_resource_group</a></li>
-          <li><a href="#qesap_az_calculate_address_range">qesap_az_calculate_address_range</a></li>
+          <li><a href="#qesap_calculate_address_range">qesap_calculate_address_range</a></li>
           <li><a href="#qesap_az_vnet_peering">qesap_az_vnet_peering</a></li>
           <li><a href="#qesap_az_simple_peering_delete">qesap_az_simple_peering_delete</a></li>
           <li><a href="#qesap_az_vnet_peering_delete">qesap_az_vnet_peering_delete</a></li>
@@ -293,6 +293,10 @@ Test only returns execution result, failure has to be handled by calling method.
 
 </dd>
 <dt id="ERROR_STRING---error-string-to-look-for"><b>ERROR_STRING</b> - error string to look for</dt>
+<dd>
+
+</dd>
+<dt id="destroy_terraform---destroy-terraform-before-retrying-terraform-apply"><b>destroy_terraform</b> - destroy terraform before retrying terraform apply</dt>
 <dd>
 
 </dd>
@@ -609,6 +613,16 @@ Return the local path of the downloaded file.</code></pre>
 </dd>
 </dl>
 
+<h3 id="qesap_ansible_reg_module">qesap_ansible_reg_module</h3>
+
+<pre><code>Compose the ansible-playbook argument for the registration.yaml playbook,
+about an additional module registration
+
+-e sles_modules=&#39;[{&quot;key&quot;:&quot;SLES-LTSS-Extended-Security/12.5/x86_64&quot;,&quot;value&quot;:&quot;*******&quot;}]&#39;
+
+Known limitation is that registration.yaml supports multiple modules to be registered,
+this code only supports one.</code></pre>
+
 <h3 id="qesap_create_aws_credentials">qesap_create_aws_credentials</h3>
 
 <pre><code>Creates a AWS credentials file as required by QE-SAP Terraform deployment code.</code></pre>
@@ -809,6 +823,14 @@ Return 0 (false) if delete-transit-gateway-vpc-attachment fails or
 
 <pre><code>Return the Transient Gateway ID of the IBS Mirror</code></pre>
 
+<dl>
+
+<dt id="MIRROR_TAG---Value-of-Project-tag-applied-to-the-IBS-Mirror"><b>MIRROR_TAG</b> - Value of Project tag applied to the IBS Mirror</dt>
+<dd>
+
+</dd>
+</dl>
+
 <h3 id="qesap_aws_get_vpc_workspace">qesap_aws_get_vpc_workspace</h3>
 
 <pre><code>Get the VPC tag workspace defined in
@@ -849,6 +871,10 @@ Return 1 (true) if the overall peering procedure completes successfully</code></
 
 </dd>
 <dt id="VPC_ID---VPC-ID-of-resource-to-be-attached-SUT-HANA-cluster3"><b>VPC_ID</b> - VPC ID of resource to be attached (SUT HANA cluster)</dt>
+<dd>
+
+</dd>
+<dt id="MIRROR_TAG---Value-of-Project-tag-applied-to-the-IBS-Mirror1"><b>MIRROR_TAG</b> - Value of Project tag applied to the IBS Mirror</dt>
 <dd>
 
 </dd>
@@ -901,18 +927,6 @@ In cases of ambiguous responses, they are considered to be in `running` state.</
 </dd>
 </dl>
 
-<h3 id="qesap_az_get_vnet">qesap_az_get_vnet</h3>
-
-<p>Return the output of az network vnet list</p>
-
-<dl>
-
-<dt id="RESOURCE_GROUP---resource-group-name-to-query1"><b>RESOURCE_GROUP</b> - resource group name to query</dt>
-<dd>
-
-</dd>
-</dl>
-
 <h3 id="qesap_az_get_resource_group">qesap_az_get_resource_group</h3>
 
 <p>Query and return the resource group used by the qe-sap-deployment</p>
@@ -925,9 +939,9 @@ In cases of ambiguous responses, they are considered to be in `running` state.</
 </dd>
 </dl>
 
-<h3 id="qesap_az_calculate_address_range">qesap_az_calculate_address_range</h3>
+<h3 id="qesap_calculate_address_range">qesap_calculate_address_range</h3>
 
-<p>Calculate the vnet and subnet address ranges. The format is 10.ip2.ip3.0/21 and /24 respectively. ip2 and ip3 are calculated using the slot number as seed.</p>
+<p>Calculate a main range that can be used in Azure for vnet or in AWS for vpc. Also calculate a secondary range within the main one for Azure subnet address ranges. The format is 10.ip2.ip3.0/21 and /24 respectively. ip2 and ip3 are calculated using the slot number as seed.</p>
 
 <dl>
 
@@ -1162,12 +1176,16 @@ subscription_id - valid azure subscription</code></pre>
 
 <h2 id="qesap_terrafom_ansible_deploy_retry">qesap_terrafom_ansible_deploy_retry</h2>
 
-<pre><code>qesap_terrafom_ansible_deploy_retry( error_log=&gt;$error_log )
-    error_log - ansible error log file name
+<pre><code>    qesap_terrafom_ansible_deploy_retry( error_log=&gt;$error_log )
+        error_log - ansible error log file name
 
-Retry to deploy terraform + ansible
-Return 0: we manage the failure properly
-Return 1: something went wrong or we do not know what to do with the failure</code></pre>
+    Retry to deploy terraform + ansible. This function is only expected to be called if a previous `qesap.py`
+    execution returns a non zero exit code. If this function is called after a successful execution,
+    the qesap_ansible_error_detection will not find anything wrong in the log, wrongly concluding that
+    an unknown error is in the log and skipping the retry and this function will return 1.
+.
+    Return 0: this function manage the failure properly, perform a retry and retry was a successful deployment
+    Return 1: something went wrong or this function does not know what to do with the failure</code></pre>
 
 <dl>
 
@@ -1188,8 +1206,8 @@ Return 1: something went wrong or we do not know what to do with the failure</co
 Inspect the provided Ansible log and search for known issue in the log
 Also provide a nice record_info to summarize the error
 Return:
- - 0: no errors
- - 1: unknown generic error
+ - 0: unable to detect errors
+ - 1: generic fatal error
  - 2: reboot timeout
  - 3: no sudo password</code></pre>
 
@@ -1206,7 +1224,7 @@ Return:
 <pre><code>qesap_test_postfail()
 
 Post fail tasks suitable for post_fail_hook of the test modules.
-This API is mainly designed for qesap regresstion test modules.</code></pre>
+This API is mainly designed for qesap regression test modules.</code></pre>
 
 <dl>
 
